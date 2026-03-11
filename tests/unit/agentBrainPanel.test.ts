@@ -106,14 +106,14 @@ describe("AgentBrainPanel", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Persona" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "SOUL.md" })).toBeInTheDocument();
     });
 
-    expect(screen.getByRole("heading", { name: "Directives" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Context" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Identity" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Directives")).toHaveValue("alpha agents");
-    expect(screen.getByLabelText("Persona")).toHaveValue(
+    expect(screen.getByRole("heading", { name: "AGENTS.md" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "USER.md" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "IDENTITY.md" })).toBeInTheDocument();
+    expect(screen.getByLabelText("AGENTS.md")).toHaveValue("alpha agents");
+    expect(screen.getByLabelText("SOUL.md")).toHaveValue(
       "# SOUL.md - Who You Are\n\n## Core Truths\n\nBe useful."
     );
     expect(screen.getByLabelText("Name")).toHaveValue("Alpha");
@@ -147,10 +147,10 @@ describe("AgentBrainPanel", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByLabelText("Directives")).toBeInTheDocument();
+      expect(screen.getByLabelText("AGENTS.md")).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByLabelText("Directives"), {
+    fireEvent.change(screen.getByLabelText("AGENTS.md"), {
       target: { value: "alpha directives updated" },
     });
 
@@ -201,7 +201,7 @@ describe("AgentBrainPanel", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Persona" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "SOUL.md" })).toBeInTheDocument();
     });
     expect(screen.queryByLabelText("Agent name")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Update Name" })).not.toBeInTheDocument();
@@ -219,7 +219,7 @@ describe("AgentBrainPanel", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Persona" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "SOUL.md" })).toBeInTheDocument();
     });
     expect(mockState.readCalls.length).toBe(0);
 

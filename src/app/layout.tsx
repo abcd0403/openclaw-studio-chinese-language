@@ -40,7 +40,10 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${display.variable} ${sans.variable} ${mono.variable} antialiased`}>
+      <body
+        suppressHydrationWarning
+        className={`${display.variable} ${sans.variable} ${mono.variable} antialiased`}
+      >
         {children}
       </body>
     </html>

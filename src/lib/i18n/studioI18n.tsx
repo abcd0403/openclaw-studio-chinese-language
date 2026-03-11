@@ -6,13 +6,14 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 
 export type StudioLocale = "en" | "zh-CN";
 
 const STUDIO_LOCALE_STORAGE_KEY = "openclaw-studio.locale";
+const STUDIO_LOCALE_CHANGE_EVENT = "openclaw-studio:locale-change";
 const DEFAULT_LOCALE: StudioLocale = "en";
 
 const ZH_CN_TRANSLATIONS: Record<string, string> = {
@@ -216,6 +217,20 @@ const translateText = (locale: StudioLocale, text: string): string => {
   return ZH_CN_TRANSLATIONS[text] ?? text;
 };
 
+const subscribeLocale = (onStoreChange: () => void): (() => void) => {
+  if (typeof window === "undefined") return () => {};
+  const onChange = () => onStoreChange();
+  window.addEventListener("storage", onChange);
+  window.addEventListener(STUDIO_LOCALE_CHANGE_EVENT, onChange as EventListener);
+  return () => {
+    window.removeEventListener("storage", onChange);
+    window.removeEventListener(STUDIO_LOCALE_CHANGE_EVENT, onChange as EventListener);
+  };
+};
+
+const getClientLocaleSnapshot = (): StudioLocale => detectLocale();
+const getServerLocaleSnapshot = (): StudioLocale => DEFAULT_LOCALE;
+
 type StudioI18nContextValue = {
   locale: StudioLocale;
   setLocale: (next: StudioLocale) => void;
@@ -231,7 +246,11 @@ const FALLBACK_CONTEXT_VALUE: StudioI18nContextValue = {
 };
 
 export const StudioI18nProvider = ({ children }: { children: ReactNode }) => {
-  const [locale, setLocaleState] = useState<StudioLocale>(() => detectLocale());
+  const locale = useSyncExternalStore(
+    subscribeLocale,
+    getClientLocaleSnapshot,
+    getServerLocaleSnapshot
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -240,7 +259,9 @@ export const StudioI18nProvider = ({ children }: { children: ReactNode }) => {
   }, [locale]);
 
   const setLocale = useCallback((next: StudioLocale) => {
-    setLocaleState(next);
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(STUDIO_LOCALE_STORAGE_KEY, next);
+    window.dispatchEvent(new Event(STUDIO_LOCALE_CHANGE_EVENT));
   }, []);
 
   const t = useCallback(

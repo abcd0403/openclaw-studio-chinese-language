@@ -31,6 +31,7 @@ import {
   isAgentFileName,
 } from "@/lib/agents/agentFiles";
 import { parsePersonalityFiles, serializePersonalityFiles } from "@/lib/agents/personalityBuilder";
+import { useStudioI18n } from "@/lib/i18n/studioI18n";
 
 const AgentInspectHeader = ({
   label,
@@ -45,6 +46,7 @@ const AgentInspectHeader = ({
   closeTestId: string;
   closeDisabled?: boolean;
 }) => {
+  const { locale } = useStudioI18n();
   const normalizedLabel = label?.trim() ?? "";
   const normalizedTitle = title?.trim() ?? "";
   const hasLabel = normalizedLabel.length > 0;
@@ -76,7 +78,7 @@ const AgentInspectHeader = ({
         className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground/55 transition hover:bg-surface-2 hover:text-muted-foreground/85"
         type="button"
         data-testid={closeTestId}
-        aria-label="Close panel"
+        aria-label={locale === "zh-CN" ? "关闭面板" : "Close panel"}
         disabled={closeDisabled}
         onClick={onClose}
       >
@@ -107,16 +109,20 @@ type AgentSettingsPanelProps = {
   controlUiUrl?: string | null;
 };
 
-const formatCronStateLine = (job: CronJobSummary): string | null => {
+const formatCronStateLine = (job: CronJobSummary, locale: "en" | "zh-CN"): string | null => {
   if (typeof job.state.runningAtMs === "number" && Number.isFinite(job.state.runningAtMs)) {
-    return "Running now";
+    return locale === "zh-CN" ? "正在运行" : "Running now";
   }
   if (typeof job.state.nextRunAtMs === "number" && Number.isFinite(job.state.nextRunAtMs)) {
-    return `Next: ${new Date(job.state.nextRunAtMs).toLocaleString()}`;
+    return locale === "zh-CN"
+      ? `下次：${new Date(job.state.nextRunAtMs).toLocaleString()}`
+      : `Next: ${new Date(job.state.nextRunAtMs).toLocaleString()}`;
   }
   if (typeof job.state.lastRunAtMs === "number" && Number.isFinite(job.state.lastRunAtMs)) {
     const status = job.state.lastStatus ? `${job.state.lastStatus} ` : "";
-    return `Last: ${status}${new Date(job.state.lastRunAtMs).toLocaleString()}`.trim();
+    return locale === "zh-CN"
+      ? `上次：${status}${new Date(job.state.lastRunAtMs).toLocaleString()}`.trim()
+      : `Last: ${status}${new Date(job.state.lastRunAtMs).toLocaleString()}`.trim();
   }
   return null;
 };
@@ -287,6 +293,7 @@ export const AgentSettingsPanel = ({
   onCreateCronJob = () => {},
   controlUiUrl = null,
 }: AgentSettingsPanelProps) => {
+  const { locale } = useStudioI18n();
   const initialPermissionsDraft =
     permissionsDraft ?? resolvePresetDefaultsForRole(resolveExecutionRoleFromAgent(agent));
   const [permissionsBaselineValue, setPermissionsBaselineValue] =
@@ -338,13 +345,18 @@ export const AgentSettingsPanel = ({
       await onUpdateAgentPermissions(draft);
       setPermissionsSaveState("saved");
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to save permissions.";
+      const message =
+        err instanceof Error
+          ? err.message
+          : locale === "zh-CN"
+            ? "保存权限失败。"
+            : "Failed to save permissions.";
       setPermissionsSaveState("error");
       setPermissionsSaveError(message);
     } finally {
       setPermissionsSaving(false);
     }
-  }, [onUpdateAgentPermissions, permissionsSaving]);
+  }, [locale, onUpdateAgentPermissions, permissionsSaving]);
 
   useEffect(() => {
     return () => {
@@ -437,7 +449,9 @@ export const AgentSettingsPanel = ({
       await onCreateCronJob(payload);
       closeCronCreate();
     } catch (err) {
-      setCronCreateError(err instanceof Error ? err.message : "Failed to create automation.");
+      setCronCreateError(
+        err instanceof Error ? err.message : locale === "zh-CN" ? "创建自动化失败。" : "Failed to create automation."
+      );
     }
   };
 
@@ -459,14 +473,30 @@ export const AgentSettingsPanel = ({
     }
   };
 
-  const panelLabel =
-    mode === "advanced"
-      ? "Advanced"
-      : "";
+  const panelLabel = mode === "advanced" ? (locale === "zh-CN" ? "高级" : "Advanced") : "";
   const canOpenControlUi = typeof controlUiUrl === "string" && controlUiUrl.trim().length > 0;
   const timedAutomationStepMeta =
     TIMED_AUTOMATION_STEP_META[cronCreateStep] ??
     TIMED_AUTOMATION_STEP_META[TIMED_AUTOMATION_STEP_META.length - 1];
+  const localizedTimedAutomationStepMeta = useMemo(() => {
+    if (locale !== "zh-CN") return timedAutomationStepMeta;
+    const titleMap: Record<string, string> = {
+      "Choose type": "选择类型",
+      "Define function": "定义功能",
+      "Set timing": "设置时间",
+      "Review and create": "确认并创建",
+    };
+    const indicatorMap: Record<string, string> = {
+      Type: "类型",
+      Function: "功能",
+      Timing: "时间",
+      Review: "确认",
+    };
+    return {
+      title: titleMap[timedAutomationStepMeta.title] ?? timedAutomationStepMeta.title,
+      indicator: indicatorMap[timedAutomationStepMeta.indicator] ?? timedAutomationStepMeta.indicator,
+    };
+  }, [locale, timedAutomationStepMeta]);
 
   return (
     <div
@@ -493,17 +523,19 @@ export const AgentSettingsPanel = ({
               <div className="mt-2 flex flex-col gap-8">
                 <div className="px-1 py-1">
                   <div className="sidebar-copy flex flex-col gap-1 text-[11px] text-muted-foreground">
-                    <span className="font-medium text-foreground/88">Run commands</span>
+                    <span className="font-medium text-foreground/88">
+                      {locale === "zh-CN" ? "命令执行" : "Run commands"}
+                    </span>
                     <div
                       className="ui-segment ui-segment-command-mode mt-2 grid-cols-3"
                       role="group"
-                      aria-label="Run commands"
+                      aria-label={locale === "zh-CN" ? "命令执行" : "Run commands"}
                     >
                       {(
                         [
-                          { id: "off", label: "Off" },
-                          { id: "ask", label: "Ask" },
-                          { id: "auto", label: "Auto" },
+                          { id: "off", label: locale === "zh-CN" ? "关闭" : "Off" },
+                          { id: "ask", label: locale === "zh-CN" ? "询问" : "Ask" },
+                          { id: "auto", label: locale === "zh-CN" ? "自动" : "Auto" },
                         ] as const
                       ).map((option) => {
                         const selected = permissionsDraftValue.commandMode === option.id;
@@ -511,7 +543,11 @@ export const AgentSettingsPanel = ({
                           <button
                             key={option.id}
                             type="button"
-                            aria-label={`Run commands ${option.label.toLowerCase()}`}
+                            aria-label={
+                              locale === "zh-CN"
+                                ? `命令执行 ${option.label}`
+                                : `Run commands ${option.label.toLowerCase()}`
+                            }
                             aria-pressed={selected}
                             className="ui-segment-item px-3 py-2.5 text-center font-mono text-[11px] font-semibold tracking-[0.04em]"
                             data-active={selected ? "true" : "false"}
@@ -534,7 +570,7 @@ export const AgentSettingsPanel = ({
                     <button
                       type="button"
                       role="switch"
-                      aria-label="Web access"
+                      aria-label={locale === "zh-CN" ? "联网访问" : "Web access"}
                       aria-checked={permissionsDraftValue.webAccess}
                       className={`ui-switch self-center ${permissionsDraftValue.webAccess ? "ui-switch--on" : ""}`}
                       onClick={() =>
@@ -547,9 +583,13 @@ export const AgentSettingsPanel = ({
                       <span className="ui-switch-thumb" />
                     </button>
                     <div className="sidebar-copy flex flex-col">
-                      <span className="text-[11px] font-medium text-foreground/88">Web access</span>
+                      <span className="text-[11px] font-medium text-foreground/88">
+                        {locale === "zh-CN" ? "联网访问" : "Web access"}
+                      </span>
                       <span className="text-[10px] text-muted-foreground/70">
-                        Allows this agent to fetch live web results.
+                        {locale === "zh-CN"
+                          ? "允许该智能体获取实时网页结果。"
+                          : "Allows this agent to fetch live web results."}
                       </span>
                     </div>
                   </div>
@@ -560,7 +600,7 @@ export const AgentSettingsPanel = ({
                     <button
                       type="button"
                       role="switch"
-                      aria-label="File tools"
+                      aria-label={locale === "zh-CN" ? "文件工具" : "File tools"}
                       aria-checked={permissionsDraftValue.fileTools}
                       className={`ui-switch self-center ${permissionsDraftValue.fileTools ? "ui-switch--on" : ""}`}
                       onClick={() =>
@@ -573,9 +613,13 @@ export const AgentSettingsPanel = ({
                       <span className="ui-switch-thumb" />
                     </button>
                     <div className="sidebar-copy flex flex-col">
-                      <span className="text-[11px] font-medium text-foreground/88">File tools</span>
+                      <span className="text-[11px] font-medium text-foreground/88">
+                        {locale === "zh-CN" ? "文件工具" : "File tools"}
+                      </span>
                       <span className="text-[10px] text-muted-foreground/70">
-                        Lets this agent read and edit files in its workspace.
+                        {locale === "zh-CN"
+                          ? "允许该智能体读取并编辑其工作区文件。"
+                          : "Lets this agent read and edit files in its workspace."}
                       </span>
                     </div>
                   </div>
@@ -586,7 +630,7 @@ export const AgentSettingsPanel = ({
                     <button
                       type="button"
                       role="switch"
-                      aria-label="Browser automation"
+                      aria-label={locale === "zh-CN" ? "浏览器自动化" : "Browser automation"}
                       aria-checked="false"
                       className="ui-switch self-center"
                       disabled
@@ -594,19 +638,23 @@ export const AgentSettingsPanel = ({
                       <span className="ui-switch-thumb" />
                     </button>
                     <div className="sidebar-copy flex flex-col">
-                      <span className="text-[11px] font-medium text-foreground/88">Browser automation</span>
-                      <span className="text-[10px] text-muted-foreground/70">Coming soon</span>
+                      <span className="text-[11px] font-medium text-foreground/88">
+                        {locale === "zh-CN" ? "浏览器自动化" : "Browser automation"}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground/70">
+                        {locale === "zh-CN" ? "即将上线" : "Coming soon"}
+                      </span>
                     </div>
                   </div>
                   <ChevronRight className="h-4 w-4 text-muted-foreground/55" aria-hidden="true" />
                 </div>
               </div>
               <div className="sidebar-copy mt-3 text-[11px] text-muted-foreground">
-                {permissionsSaveState === "saving" ? "Saving..." : null}
-                {permissionsSaveState === "saved" ? "Saved." : null}
+                {permissionsSaveState === "saving" ? (locale === "zh-CN" ? "保存中..." : "Saving...") : null}
+                {permissionsSaveState === "saved" ? (locale === "zh-CN" ? "已保存。" : "Saved.") : null}
                 {permissionsSaveState === "error" && permissionsSaveError ? (
                   <span>
-                    Couldn&apos;t save. {permissionsSaveError}{" "}
+                    {locale === "zh-CN" ? "保存失败。" : "Couldn&apos;t save."} {permissionsSaveError}{" "}
                     <button
                       type="button"
                       className="underline underline-offset-2"
@@ -614,14 +662,14 @@ export const AgentSettingsPanel = ({
                         void runPermissionsSave(permissionsDraftValue);
                       }}
                     >
-                      Retry
+                      {locale === "zh-CN" ? "重试" : "Retry"}
                     </button>
                   </span>
                 ) : null}
               </div>
               {permissionsSaveState === "error" && !permissionsSaveError ? (
                 <div className="ui-alert-danger mt-3 rounded-md px-3 py-2 text-xs">
-                  Couldn&apos;t save permissions.
+                  {locale === "zh-CN" ? "权限保存失败。" : "Couldn&apos;t save permissions."}
                 </div>
               ) : null}
             </section>
@@ -634,19 +682,21 @@ export const AgentSettingsPanel = ({
             data-testid="agent-settings-cron"
           >
           <div className="flex items-center justify-between gap-2">
-            <h3 className="sidebar-section-title">Timed automations</h3>
+            <h3 className="sidebar-section-title">{locale === "zh-CN" ? "定时自动化" : "Timed automations"}</h3>
             {!cronLoading && !cronError && cronJobs.length > 0 ? (
               <button
                 className="sidebar-btn-ghost px-2.5 py-1.5 font-mono text-[10px] font-semibold tracking-[0.06em] disabled:cursor-not-allowed disabled:opacity-60"
                 type="button"
                 onClick={openCronCreate}
               >
-                Create
+                {locale === "zh-CN" ? "创建" : "Create"}
               </button>
             ) : null}
           </div>
           {cronLoading ? (
-            <div className="mt-3 text-[11px] text-muted-foreground">Loading timed automations...</div>
+            <div className="mt-3 text-[11px] text-muted-foreground">
+              {locale === "zh-CN" ? "正在加载定时自动化..." : "Loading timed automations..."}
+            </div>
           ) : null}
           {!cronLoading && cronError ? (
             <div className="ui-alert-danger mt-3 rounded-md px-3 py-2 text-xs">
@@ -661,14 +711,14 @@ export const AgentSettingsPanel = ({
                 data-testid="cron-empty-icon"
               />
               <div className="sidebar-copy text-[11px] text-muted-foreground/82">
-                No timed automations for this agent.
+                {locale === "zh-CN" ? "该智能体暂无定时自动化。" : "No timed automations for this agent."}
               </div>
               <button
                 className="sidebar-btn-primary mt-2 w-auto min-w-[116px] self-center px-4 py-2 font-mono text-[10px] font-semibold tracking-[0.06em] disabled:cursor-not-allowed disabled:opacity-60"
                 type="button"
                 onClick={openCronCreate}
               >
-                Create
+                {locale === "zh-CN" ? "创建" : "Create"}
               </button>
             </div>
           ) : null}
@@ -684,7 +734,7 @@ export const AgentSettingsPanel = ({
                 const payloadExpandable =
                   payloadText.length > payloadPreview.length || payloadText.split("\n").length > 1;
                 const expanded = expandedCronJobIds.has(job.id);
-                const stateLine = formatCronStateLine(job);
+                const stateLine = formatCronStateLine(job, locale);
                 return (
                   <div key={job.id} className="group/cron ui-card flex items-start justify-between gap-2 px-4 py-3">
                     <div className="min-w-0 flex-1">
@@ -694,13 +744,13 @@ export const AgentSettingsPanel = ({
                         </div>
                         {!job.enabled ? (
                           <div className="shrink-0 rounded-md bg-muted/50 px-2 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground shadow-2xs">
-                            Disabled
+                            {locale === "zh-CN" ? "已禁用" : "Disabled"}
                           </div>
                         ) : null}
                       </div>
                       <div className="mt-1 text-[11px] text-muted-foreground">
                         <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                      Frequency
+                      {locale === "zh-CN" ? "频率" : "Frequency"}
                         </span>
                         <div className="break-words">{scheduleText}</div>
                       </div>
@@ -713,7 +763,7 @@ export const AgentSettingsPanel = ({
                         <div className="mt-1 text-[11px] text-muted-foreground">
                           <div className="flex items-center justify-between gap-2">
                             <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                              Task
+                              {locale === "zh-CN" ? "任务" : "Task"}
                             </span>
                             {payloadExpandable ? (
                               <button
@@ -731,7 +781,7 @@ export const AgentSettingsPanel = ({
                                   });
                                 }}
                               >
-                                {expanded ? "Less" : "More"}
+                                {expanded ? (locale === "zh-CN" ? "收起" : "Less") : locale === "zh-CN" ? "更多" : "More"}
                               </button>
                             ) : null}
                           </div>
@@ -745,7 +795,11 @@ export const AgentSettingsPanel = ({
                       <button
                         className="ui-btn-icon h-7 w-7 disabled:cursor-not-allowed disabled:opacity-60"
                         type="button"
-                        aria-label={`Run timed automation ${job.name} now`}
+                        aria-label={
+                          locale === "zh-CN"
+                            ? `立即运行定时自动化 ${job.name}`
+                            : `Run timed automation ${job.name} now`
+                        }
                         onClick={() => {
                           void onRunCronJob(job.id);
                         }}
@@ -756,7 +810,11 @@ export const AgentSettingsPanel = ({
                       <button
                         className="ui-btn-icon ui-btn-icon-danger h-7 w-7 bg-transparent disabled:cursor-not-allowed disabled:opacity-60"
                         type="button"
-                        aria-label={`Delete timed automation ${job.name}`}
+                        aria-label={
+                          locale === "zh-CN"
+                            ? `删除定时自动化 ${job.name}`
+                            : `Delete timed automation ${job.name}`
+                        }
                         onClick={() => {
                           void onDeleteCronJob(job.id);
                         }}
@@ -774,9 +832,9 @@ export const AgentSettingsPanel = ({
             className="sidebar-section"
             data-testid="agent-settings-heartbeat-coming-soon"
           >
-            <h3 className="sidebar-section-title">Heartbeats</h3>
+            <h3 className="sidebar-section-title">{locale === "zh-CN" ? "心跳任务" : "Heartbeats"}</h3>
             <div className="mt-3 text-[11px] text-muted-foreground">
-              Heartbeat automation controls are coming soon.
+              {locale === "zh-CN" ? "心跳自动化控制即将上线。" : "Heartbeat automation controls are coming soon."}
             </div>
           </section>
           </section>
@@ -785,14 +843,24 @@ export const AgentSettingsPanel = ({
         {mode === "advanced" ? (
           <>
             <section className="sidebar-section mt-8" data-testid="agent-settings-control-ui">
-              <h3 className="sidebar-section-title ui-text-danger">Danger Zone</h3>
+              <h3 className="sidebar-section-title ui-text-danger">{locale === "zh-CN" ? "危险区域" : "Danger Zone"}</h3>
               <div className="ui-alert-danger mt-3 rounded-md px-3 py-3 text-[11px]">
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                   <div className="space-y-1">
-                    <div className="font-medium">Advanced users only.</div>
-                    <div>Open the full OpenClaw Control UI outside Studio.</div>
-                    <div>Changes there can break agent behavior or put Studio out of sync.</div>
+                    <div className="font-medium">
+                      {locale === "zh-CN" ? "仅建议高级用户操作。" : "Advanced users only."}
+                    </div>
+                    <div>
+                      {locale === "zh-CN"
+                        ? "请在 Studio 外部打开完整 OpenClaw 控制界面。"
+                        : "Open the full OpenClaw Control UI outside Studio."}
+                    </div>
+                    <div>
+                      {locale === "zh-CN"
+                        ? "在该界面修改可能导致智能体行为异常或与 Studio 状态不同步。"
+                        : "Changes there can break agent behavior or put Studio out of sync."}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -803,7 +871,7 @@ export const AgentSettingsPanel = ({
                   target="_blank"
                   rel="noreferrer"
                 >
-                  Open Full Control UI
+                  {locale === "zh-CN" ? "打开完整控制界面" : "Open Full Control UI"}
                   <ExternalLink className="h-3 w-3" aria-hidden="true" />
                 </a>
               ) : (
@@ -813,10 +881,12 @@ export const AgentSettingsPanel = ({
                     type="button"
                     disabled
                   >
-                    Open Full Control UI
+                    {locale === "zh-CN" ? "打开完整控制界面" : "Open Full Control UI"}
                   </button>
                   <div className="mt-2 text-[10px] text-muted-foreground/70">
-                    Control UI link unavailable for this gateway.
+                    {locale === "zh-CN"
+                      ? "当前网关不可用控制界面链接。"
+                      : "Control UI link unavailable for this gateway."}
                   </div>
                 </>
               )}
@@ -825,21 +895,23 @@ export const AgentSettingsPanel = ({
             {canDelete ? (
               <section className="sidebar-section mt-8">
                 <div className="text-[11px] text-muted-foreground/68">
-                  Removes the agent from the gateway config and deletes its scheduled automations.
+                  {locale === "zh-CN"
+                    ? "会将该智能体从网关配置中移除，并删除其定时自动化。"
+                    : "Removes the agent from the gateway config and deletes its scheduled automations."}
                 </div>
                 <button
                   className="sidebar-btn-ghost ui-btn-danger mt-3 inline-flex px-3 py-2 font-mono text-[10px] font-semibold tracking-[0.06em]"
                   type="button"
                   onClick={onDelete}
                 >
-                  Delete agent
+                  {locale === "zh-CN" ? "删除智能体" : "Delete agent"}
                 </button>
               </section>
             ) : (
               <section className="sidebar-section mt-8">
-                <h3 className="sidebar-section-title">System agent</h3>
+                <h3 className="sidebar-section-title">{locale === "zh-CN" ? "系统智能体" : "System agent"}</h3>
                 <div className="mt-3 text-[11px] text-muted-foreground">
-                  The main agent is reserved and cannot be deleted.
+                  {locale === "zh-CN" ? "主智能体为保留项，不能删除。" : "The main agent is reserved and cannot be deleted."}
                 </div>
               </section>
             )}
@@ -851,7 +923,7 @@ export const AgentSettingsPanel = ({
           className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 p-4"
           role="dialog"
           aria-modal="true"
-          aria-label="Create automation"
+          aria-label={locale === "zh-CN" ? "创建自动化" : "Create automation"}
           onClick={closeCronCreate}
         >
           <div
@@ -861,16 +933,18 @@ export const AgentSettingsPanel = ({
             <div className="flex items-start justify-between gap-3 px-6 py-5">
               <div className="min-w-0">
                 <div className="text-[11px] font-medium tracking-[0.01em] text-muted-foreground/80">
-                  Timed automation composer
+                  {locale === "zh-CN" ? "定时自动化向导" : "Timed automation composer"}
                 </div>
-                <div className="mt-1 text-base font-semibold text-foreground">{timedAutomationStepMeta.title}</div>
+                <div className="mt-1 text-base font-semibold text-foreground">
+                  {localizedTimedAutomationStepMeta.title}
+                </div>
               </div>
               <button
                 type="button"
                 className="sidebar-btn-ghost px-3 font-mono text-[10px] font-semibold tracking-[0.06em]"
                 onClick={closeCronCreate}
               >
-                Close
+                {locale === "zh-CN" ? "关闭" : "Close"}
               </button>
             </div>
             <div className="space-y-4 px-5 py-5">
@@ -882,17 +956,41 @@ export const AgentSettingsPanel = ({
               {cronCreateStep === 0 ? (
                 <div className="space-y-3">
                   <div className="text-sm text-muted-foreground">
-                    Pick a template to start quickly, or choose Custom.
+                    {locale === "zh-CN" ? "选择模板可快速开始，或选择 Custom 自定义。" : "Pick a template to start quickly, or choose Custom."}
                   </div>
                   <div className="grid gap-2 sm:grid-cols-2">
                     {CRON_TEMPLATE_OPTIONS.map((option) => {
                       const active = option.id === cronDraft.templateId;
                       const Icon = option.icon;
+                      const localizedTitle =
+                        locale === "zh-CN"
+                          ? option.id === "morning-brief"
+                            ? "晨间简报"
+                            : option.id === "reminder"
+                              ? "提醒"
+                              : option.id === "weekly-review"
+                                ? "周回顾"
+                                : option.id === "inbox-triage"
+                                  ? "收件箱分拣"
+                                  : "自定义"
+                          : option.title;
+                      const localizedDescription =
+                        locale === "zh-CN"
+                          ? option.id === "morning-brief"
+                            ? "每日状态摘要与隔夜更新。"
+                            : option.id === "reminder"
+                              ? "为指定事件或任务设置定时提醒。"
+                              : option.id === "weekly-review"
+                                ? "对较长时间窗口进行周期性总结。"
+                                : option.id === "inbox-triage"
+                                  ? "定期整理并总结新收到的更新。"
+                                  : "从空白流程开始，自定义每个设置。"
+                          : option.description;
                       return (
                         <button
                           key={option.id}
                           type="button"
-                          aria-label={option.title}
+                          aria-label={localizedTitle}
                           className={`ui-card px-3 py-3 text-left transition ${
                             active
                               ? "ui-selected"
@@ -903,10 +1001,10 @@ export const AgentSettingsPanel = ({
                           <div className="flex items-center gap-2">
                             <Icon className="h-4 w-4 text-foreground" />
                             <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-foreground">
-                              {option.title}
+                              {localizedTitle}
                             </div>
                           </div>
-                          <div className="mt-1 text-[11px] text-muted-foreground">{option.description}</div>
+                          <div className="mt-1 text-[11px] text-muted-foreground">{localizedDescription}</div>
                         </button>
                       );
                     })}
@@ -916,14 +1014,14 @@ export const AgentSettingsPanel = ({
               {cronCreateStep === 1 ? (
                 <div className="space-y-3">
                   <div className="text-sm text-muted-foreground">
-                    Name this automation and describe what it should do.
+                    {locale === "zh-CN" ? "为该自动化命名，并描述它需要完成的任务。" : "Name this automation and describe what it should do."}
                   </div>
                   <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
                     <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em]">
-                      Automation name
+                      {locale === "zh-CN" ? "自动化名称" : "Automation name"}
                     </span>
                     <input
-                      aria-label="Automation name"
+                      aria-label={locale === "zh-CN" ? "自动化名称" : "Automation name"}
                       className="h-10 rounded-md border border-border bg-surface-3 px-3 text-sm text-foreground outline-none"
                       value={cronDraft.name}
                       onChange={(event) => updateCronDraft({ name: event.target.value })}
@@ -931,10 +1029,10 @@ export const AgentSettingsPanel = ({
                   </label>
                   <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
                     <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em]">
-                      Task
+                      {locale === "zh-CN" ? "任务" : "Task"}
                     </span>
                     <textarea
-                      aria-label="Task"
+                      aria-label={locale === "zh-CN" ? "任务" : "Task"}
                       className="min-h-28 rounded-md border border-border bg-surface-3 px-3 py-2 text-sm text-foreground outline-none"
                       value={cronDraft.taskText}
                       onChange={(event) => updateCronDraft({ taskText: event.target.value })}
@@ -944,10 +1042,12 @@ export const AgentSettingsPanel = ({
               ) : null}
               {cronCreateStep === 2 ? (
                 <div className="space-y-3">
-                  <div className="text-sm text-muted-foreground">Choose when this should run.</div>
+                  <div className="text-sm text-muted-foreground">
+                    {locale === "zh-CN" ? "选择此自动化的运行时间。" : "Choose when this should run."}
+                  </div>
                   <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
                     <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em]">
-                      Schedule type
+                      {locale === "zh-CN" ? "调度类型" : "Schedule type"}
                     </span>
                     <select
                       className="h-10 rounded-md border border-border bg-surface-3 px-3 text-sm text-foreground outline-none"
@@ -956,15 +1056,15 @@ export const AgentSettingsPanel = ({
                         updateCronDraft({ scheduleKind: event.target.value as CronCreateDraft["scheduleKind"] })
                       }
                     >
-                      <option value="every">Every</option>
-                      <option value="at">One time</option>
+                      <option value="every">{locale === "zh-CN" ? "重复执行" : "Every"}</option>
+                      <option value="at">{locale === "zh-CN" ? "单次执行" : "One time"}</option>
                     </select>
                   </label>
                   {cronDraft.scheduleKind === "every" ? (
                     <div className="grid gap-2 sm:grid-cols-2">
                       <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
                         <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em]">
-                          Every
+                          {locale === "zh-CN" ? "每隔" : "Every"}
                         </span>
                         <input
                           type="number"
@@ -981,7 +1081,7 @@ export const AgentSettingsPanel = ({
                       </label>
                       <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
                         <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em]">
-                          Unit
+                          {locale === "zh-CN" ? "单位" : "Unit"}
                         </span>
                         <select
                           className="h-10 rounded-md border border-border bg-surface-3 px-3 text-sm text-foreground outline-none"
@@ -992,16 +1092,16 @@ export const AgentSettingsPanel = ({
                             })
                           }
                         >
-                          <option value="minutes">Minutes</option>
-                          <option value="hours">Hours</option>
-                          <option value="days">Days</option>
+                          <option value="minutes">{locale === "zh-CN" ? "分钟" : "Minutes"}</option>
+                          <option value="hours">{locale === "zh-CN" ? "小时" : "Hours"}</option>
+                          <option value="days">{locale === "zh-CN" ? "天" : "Days"}</option>
                         </select>
                       </label>
                       {cronDraft.everyUnit === "days" ? (
                         <>
                           <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
                             <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em]">
-                              Time of day
+                              {locale === "zh-CN" ? "每日时间" : "Time of day"}
                             </span>
                             <input
                               type="time"
@@ -1012,7 +1112,7 @@ export const AgentSettingsPanel = ({
                           </label>
                           <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
                             <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em]">
-                              Timezone
+                              {locale === "zh-CN" ? "时区" : "Timezone"}
                             </span>
                             <input
                               className="h-10 rounded-md border border-border bg-surface-3 px-3 text-sm text-foreground outline-none"
@@ -1027,7 +1127,7 @@ export const AgentSettingsPanel = ({
                   {cronDraft.scheduleKind === "at" ? (
                     <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
                       <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em]">
-                        Run at
+                        {locale === "zh-CN" ? "执行时间" : "Run at"}
                       </span>
                       <input
                         type="datetime-local"
@@ -1041,21 +1141,31 @@ export const AgentSettingsPanel = ({
               ) : null}
               {cronCreateStep === 3 ? (
                 <div className="space-y-3 text-sm text-muted-foreground">
-                  <div>Review details before creating this automation.</div>
+                  <div>{locale === "zh-CN" ? "创建前请确认以下信息。" : "Review details before creating this automation."}</div>
                   <div className="ui-card px-3 py-2">
                     <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-foreground">
-                      {cronDraft.name || "Untitled automation"}
+                      {cronDraft.name || (locale === "zh-CN" ? "未命名自动化" : "Untitled automation")}
                     </div>
-                    <div className="mt-1 text-[11px]">{cronDraft.taskText || "No task provided."}</div>
+                    <div className="mt-1 text-[11px]">
+                      {cronDraft.taskText || (locale === "zh-CN" ? "未提供任务描述。" : "No task provided.")}
+                    </div>
                     <div className="mt-2 text-[11px]">
-                      Schedule:{" "}
+                      {locale === "zh-CN" ? "调度：" : "Schedule: "}{" "}
                       {cronDraft.scheduleKind === "every"
-                        ? `Every ${cronDraft.everyAmount ?? 0} ${cronDraft.everyUnit ?? "minutes"}${
+                        ? locale === "zh-CN"
+                          ? `每 ${cronDraft.everyAmount ?? 0} ${cronDraft.everyUnit === "hours" ? "小时" : cronDraft.everyUnit === "days" ? "天" : "分钟"}${
+                              cronDraft.everyUnit === "days"
+                                ? `，时间 ${cronDraft.everyAtTime ?? ""}（${cronDraft.everyTimeZone ?? resolveLocalTimeZone()}）`
+                                : ""
+                            }`
+                          : `Every ${cronDraft.everyAmount ?? 0} ${cronDraft.everyUnit ?? "minutes"}${
                             cronDraft.everyUnit === "days"
                               ? ` at ${cronDraft.everyAtTime ?? ""} (${cronDraft.everyTimeZone ?? resolveLocalTimeZone()})`
                               : ""
                           }`
-                        : `At ${cronDraft.scheduleAt ?? ""}`}
+                        : locale === "zh-CN"
+                          ? `于 ${cronDraft.scheduleAt ?? ""} 执行`
+                          : `At ${cronDraft.scheduleAt ?? ""}`}
                     </div>
                   </div>
                 </div>
@@ -1063,7 +1173,9 @@ export const AgentSettingsPanel = ({
             </div>
             <div className="flex items-center justify-between gap-2 border-t border-border/50 px-5 pb-4 pt-5">
               <div className="text-[11px] text-muted-foreground">
-                {timedAutomationStepMeta.indicator} · Step {cronCreateStep + 1} of 4
+                {locale === "zh-CN"
+                  ? `${localizedTimedAutomationStepMeta.indicator} · 第 ${cronCreateStep + 1} / 4 步`
+                  : `${localizedTimedAutomationStepMeta.indicator} · Step ${cronCreateStep + 1} of 4`}
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -1072,7 +1184,7 @@ export const AgentSettingsPanel = ({
                   onClick={moveCronCreateBack}
                   disabled={cronCreateStep === 0 || cronCreateBusy}
                 >
-                  Back
+                  {locale === "zh-CN" ? "上一步" : "Back"}
                 </button>
                 {cronCreateStep < 3 ? (
                   <button
@@ -1085,7 +1197,7 @@ export const AgentSettingsPanel = ({
                       (cronCreateStep === 2 && !canMoveToReviewStep)
                     }
                   >
-                    Next
+                    {locale === "zh-CN" ? "下一步" : "Next"}
                   </button>
                 ) : null}
                 {cronCreateStep === 3 ? (
@@ -1097,7 +1209,7 @@ export const AgentSettingsPanel = ({
                     }}
                     disabled={cronCreateBusy || !canSubmitCronCreate}
                   >
-                    Create automation
+                    {locale === "zh-CN" ? "创建自动化" : "Create automation"}
                   </button>
                 ) : null}
               </div>
@@ -1126,6 +1238,7 @@ const useAgentFilesEditor = (params: {
   agentId: string | null | undefined;
   gatewayStatus: GatewayStatus;
 }): UseAgentFilesEditorResult => {
+  const { locale } = useStudioI18n();
   const { agentId, gatewayStatus } = params;
   const [agentFiles, setAgentFiles] = useState(createAgentFilesState);
   const [agentFilesLoading, setAgentFilesLoading] = useState(false);
@@ -1152,14 +1265,16 @@ const useAgentFilesEditor = (params: {
         savedAgentFilesRef.current = emptyState;
         setAgentFiles(emptyState);
         setAgentFilesDirty(false);
-        setAgentFilesError("Agent ID is missing for this agent.");
+        setAgentFilesError(
+          locale === "zh-CN" ? "当前智能体缺少 Agent ID。" : "Agent ID is missing for this agent."
+        );
         return;
       }
       if (gatewayStatus !== "connected") {
         if (gatewayStatus === "connecting") {
           setAgentFilesError(null);
         } else {
-          setAgentFilesError("Gateway is not connected.");
+          setAgentFilesError(locale === "zh-CN" ? "网关未连接。" : "Gateway is not connected.");
         }
         return;
       }
@@ -1181,12 +1296,17 @@ const useAgentFilesEditor = (params: {
       setAgentFiles(nextState);
       setAgentFilesDirty(false);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to load agent files.";
+      const message =
+        err instanceof Error
+          ? err.message
+          : locale === "zh-CN"
+            ? "加载智能体文件失败。"
+            : "Failed to load agent files.";
       setAgentFilesError(message);
     } finally {
       setAgentFilesLoading(false);
     }
-  }, [agentId, gatewayStatus]);
+  }, [agentId, gatewayStatus, locale]);
 
   const saveAgentFiles = useCallback(async () => {
     setAgentFilesSaving(true);
@@ -1194,11 +1314,13 @@ const useAgentFilesEditor = (params: {
     try {
       const trimmedAgentId = agentId?.trim();
       if (!trimmedAgentId) {
-        setAgentFilesError("Agent ID is missing for this agent.");
+        setAgentFilesError(
+          locale === "zh-CN" ? "当前智能体缺少 Agent ID。" : "Agent ID is missing for this agent."
+        );
         return false;
       }
       if (gatewayStatus !== "connected") {
-        setAgentFilesError("Gateway is not connected.");
+        setAgentFilesError(locale === "zh-CN" ? "网关未连接。" : "Gateway is not connected.");
         return false;
       }
       await Promise.all(
@@ -1222,13 +1344,18 @@ const useAgentFilesEditor = (params: {
       setAgentFilesDirty(false);
       return true;
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to save agent files.";
+      const message =
+        err instanceof Error
+          ? err.message
+          : locale === "zh-CN"
+            ? "保存智能体文件失败。"
+            : "Failed to save agent files.";
       setAgentFilesError(message);
       return false;
     } finally {
       setAgentFilesSaving(false);
     }
-  }, [agentFiles, agentId, gatewayStatus]);
+  }, [agentFiles, agentId, gatewayStatus, locale]);
 
   const setAgentFileContent = useCallback((name: AgentFileName, value: string) => {
     if (!isAgentFileName(name)) return;
@@ -1287,6 +1414,7 @@ export const AgentBrainPanel = ({
   selectedAgentId,
   onUnsavedChangesChange,
 }: AgentBrainPanelProps) => {
+  const { locale } = useStudioI18n();
   const selectedAgent = useMemo(
     () =>
       selectedAgentId
@@ -1356,7 +1484,7 @@ export const AgentBrainPanel = ({
               disabled={agentFilesLoading || agentFilesSaving || !agentFilesDirty}
               onClick={discardAgentFileChanges}
             >
-              Discard
+              {locale === "zh-CN" ? "放弃更改" : "Discard"}
             </button>
             <button
               type="button"
@@ -1366,14 +1494,14 @@ export const AgentBrainPanel = ({
                 void handleSave();
               }}
             >
-              Save
+              {locale === "zh-CN" ? "保存" : "Save"}
             </button>
           </div>
 
           <div className="space-y-8 pb-8">
-            <AgentBrainPanelSection title="Persona">
+            <AgentBrainPanelSection title="SOUL.md">
               <textarea
-                aria-label="Persona"
+                aria-label="SOUL.md"
                 className="h-56 w-full resize-y rounded-md border border-border/80 bg-background px-4 py-3 font-mono text-sm leading-6 text-foreground outline-none"
                 value={agentFiles["SOUL.md"].content}
                 disabled={agentFilesLoading || agentFilesSaving}
@@ -1383,9 +1511,9 @@ export const AgentBrainPanel = ({
               />
             </AgentBrainPanelSection>
 
-            <AgentBrainPanelSection title="Directives">
+            <AgentBrainPanelSection title="AGENTS.md">
               <textarea
-                aria-label="Directives"
+                aria-label="AGENTS.md"
                 className="h-56 w-full resize-y rounded-md border border-border/80 bg-background px-4 py-3 font-mono text-sm leading-6 text-foreground outline-none"
                 value={agentFiles["AGENTS.md"].content}
                 disabled={agentFilesLoading || agentFilesSaving}
@@ -1395,9 +1523,9 @@ export const AgentBrainPanel = ({
               />
             </AgentBrainPanelSection>
 
-            <AgentBrainPanelSection title="Context">
+            <AgentBrainPanelSection title="USER.md">
               <textarea
-                aria-label="Context"
+                aria-label="USER.md"
                 className="h-56 w-full resize-y rounded-md border border-border/80 bg-background px-4 py-3 font-mono text-sm leading-6 text-foreground outline-none"
                 value={agentFiles["USER.md"].content}
                 disabled={agentFilesLoading || agentFilesSaving}
@@ -1408,10 +1536,10 @@ export const AgentBrainPanel = ({
             </AgentBrainPanelSection>
 
             <section className="space-y-3 border-t border-border/55 pt-8">
-              <h3 className="text-sm font-medium text-foreground">Identity</h3>
+              <h3 className="text-sm font-medium text-foreground">IDENTITY.md</h3>
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="flex flex-col gap-2 text-xs text-muted-foreground">
-                  Name
+                  {locale === "zh-CN" ? "名称" : "Name"}
                   <input
                     className="h-10 rounded-md border border-border/80 bg-background px-3 text-sm text-foreground outline-none"
                     value={draft.identity.name}
@@ -1422,7 +1550,7 @@ export const AgentBrainPanel = ({
                   />
                 </label>
                 <label className="flex flex-col gap-2 text-xs text-muted-foreground">
-                  Creature
+                  {locale === "zh-CN" ? "物种" : "Creature"}
                   <input
                     className="h-10 rounded-md border border-border/80 bg-background px-3 text-sm text-foreground outline-none"
                     value={draft.identity.creature}
@@ -1433,7 +1561,7 @@ export const AgentBrainPanel = ({
                   />
                 </label>
                 <label className="flex flex-col gap-2 text-xs text-muted-foreground">
-                  Vibe
+                  {locale === "zh-CN" ? "风格" : "Vibe"}
                   <input
                     className="h-10 rounded-md border border-border/80 bg-background px-3 text-sm text-foreground outline-none"
                     value={draft.identity.vibe}
@@ -1444,7 +1572,7 @@ export const AgentBrainPanel = ({
                   />
                 </label>
                 <label className="flex flex-col gap-2 text-xs text-muted-foreground">
-                  Emoji
+                  {locale === "zh-CN" ? "表情" : "Emoji"}
                   <input
                     className="h-10 rounded-md border border-border/80 bg-background px-3 text-sm text-foreground outline-none"
                     value={draft.identity.emoji}
@@ -1456,7 +1584,7 @@ export const AgentBrainPanel = ({
                 </label>
               </div>
               <label className="flex flex-col gap-2 text-xs text-muted-foreground">
-                Avatar
+                {locale === "zh-CN" ? "头像" : "Avatar"}
                 <input
                   className="h-10 rounded-md border border-border/80 bg-background px-3 text-sm text-foreground outline-none"
                   value={draft.identity.avatar}
